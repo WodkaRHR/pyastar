@@ -4,7 +4,8 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include <iostream>
-
+#include <ctype.h>
+#include <string>
 
 const float INF = std::numeric_limits<float>::infinity();
 
@@ -36,6 +37,40 @@ inline float l1_norm(int i0, int j0, int i1, int j1) {
   return std::abs(i0 - i1) + std::abs(j0 - j1);
 }
 
+// L_2 norm (euclidean distance)
+inline float l2_norm(int i0, int j0, int i1, int j1) {
+  int dx = i0 - i1;
+  int dy = j0 - j1;
+  return sqrt(dx * dx + dy * dy);
+}
+
+// octile distance
+inline float octile_cost(int i0, int j0, int i1, int j1) {
+  int dx = std::abs(i0 - i1);
+  int dy = std::abs(j0 - j1);
+  if (dx >= dy) {
+    return dx + (M_SQRT2 - 1) * dy;
+  } else {
+    return dy + (M_SQRT2 - 1) * dx;
+  }
+}
+
+enum {
+  L2_HEURISTIC,
+  L1_HEURISTIC,
+  OCTILE_HEURISTIC,
+  CUSTOM_HEURISTIC
+};
+
+const char str_l2_heuristic[] = "l2";
+const char str_l1_heuristic[] = "l1";
+const char str_octile_heuristic[] = "octile";
+const char str_custom_heuristic[] = "custom";
+
+const float nbrs_costs[8] = {
+  M_SQRT2, 1, M_SQRT2, 1, 1, M_SQRT2, 1, M_SQRT2,
+};
+
 
 // weights:        flattened h x w grid of costs
 // h, w:           height and width of grid
@@ -44,21 +79,43 @@ inline float l1_norm(int i0, int j0, int i1, int j1) {
 // paths (output): for each node, stores previous node in path
 static PyObject *astar(PyObject *self, PyObject *args) {
   const PyArrayObject* weights_object;
+  const PyArrayObject* heuristic_object;
   int h;
   int w;
   int start;
   int goal;
-  int diag_ok;
+  const char *str_heuristic;
 
   if (!PyArg_ParseTuple(
-        args, "Oiiiii", // i = int, O = object
+        args, "OiiiisO", // i = int, O = object
         &weights_object,
         &h, &w,
         &start, &goal,
-        &diag_ok))
+        &str_heuristic,
+        &heuristic_object))
     return NULL;
 
-  float* weights = (float*) weights_object->data;
+  int* weights = (int*) weights_object->data;
+  float* heuristic_map = NULL;
+  if (heuristic_object)
+    heuristic_map = (float*) heuristic_object->data;
+
+  int heuristic_type;
+  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
+    heuristic_type = L2_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
+    heuristic_type = L1_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
+    heuristic_type = OCTILE_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
+    heuristic_type = CUSTOM_HEURISTIC;
+  } else {
+    // std::cout << "No valid heuristic specified";
+    return NULL;
+  }
+
+  // std::cout << "Heuristic is " << heuristic_type << "\n";
+
   int* paths = new int[h * w];
   int path_length = -1;
 
@@ -87,35 +144,53 @@ static PyObject *astar(PyObject *self, PyObject *args) {
 
     int row = cur.idx / w;
     int col = cur.idx % w;
+    // std::cout << "Dequeueing " << row << "," << col << "\n";
+
     // check bounds and find up to eight neighbors: top to bottom, left to right
-    nbrs[0] = (diag_ok && row > 0 && col > 0)          ? cur.idx - w - 1   : -1;
+    nbrs[0] = (row > 0 && col > 0)                     ? cur.idx - w - 1   : -1;
     nbrs[1] = (row > 0)                                ? cur.idx - w       : -1;
-    nbrs[2] = (diag_ok && row > 0 && col + 1 < w)      ? cur.idx - w + 1   : -1;
+    nbrs[2] = (row > 0 && col + 1 < w)                 ? cur.idx - w + 1   : -1;
     nbrs[3] = (col > 0)                                ? cur.idx - 1       : -1;
     nbrs[4] = (col + 1 < w)                            ? cur.idx + 1       : -1;
-    nbrs[5] = (diag_ok && row + 1 < h && col > 0)      ? cur.idx + w - 1   : -1;
+    nbrs[5] = (row + 1 < h && col > 0)                 ? cur.idx + w - 1   : -1;
     nbrs[6] = (row + 1 < h)                            ? cur.idx + w       : -1;
-    nbrs[7] = (diag_ok && row + 1 < h && col + 1 < w ) ? cur.idx + w + 1   : -1;
+    nbrs[7] = (row + 1 < h && col + 1 < w )            ? cur.idx + w + 1   : -1;
 
-    float heuristic_cost;
+    float heuristic_cost = 0;
     for (int i = 0; i < 8; ++i) {
       if (nbrs[i] >= 0) {
-        // the sum of the cost so far and the cost of this move
-        float new_cost = costs[cur.idx] + weights[nbrs[i]];
-        if (new_cost < costs[nbrs[i]]) {
-          // estimate the cost to the goal based on legal moves
-          if (diag_ok) {
-            heuristic_cost = linf_norm(nbrs[i] / w, nbrs[i] % w,
-                                       goal    / w, goal    % w);
-          }
-          else {
-            heuristic_cost = l1_norm(nbrs[i] / w, nbrs[i] % w,
-                                     goal    / w, goal    % w);
-          }
+        // int nx = nbrs[i] / w;
+        // int ny = nbrs[i] % w;
 
+        if (weights[nbrs[i]]) {
+          // std::cout << "\tNeighbour at " << nx << "," << ny << " non traversable\n";
+          continue; // Non-traversable neighbour
+        }
+          
+        // the sum of the cost so far and the cost of this move
+        float new_cost = costs[cur.idx] + nbrs_costs[i];
+        if (new_cost < costs[nbrs[i]]) {
+          switch (heuristic_type) {
+            case L2_HEURISTIC:
+              heuristic_cost = l2_norm(nbrs[i] / w, nbrs[i] % w,
+                                     goal    / w, goal    % w);
+              break;
+            case L1_HEURISTIC: 
+              heuristic_cost = l1_norm(nbrs[i] / w, nbrs[i] % w,
+                                     goal    / w, goal    % w);
+              break;
+            case OCTILE_HEURISTIC:
+              heuristic_cost = octile_cost(nbrs[i] / w, nbrs[i] % w,
+                                     goal    / w, goal    % w);
+              break;
+            case CUSTOM_HEURISTIC:
+              heuristic_cost = heuristic_map[nbrs[i]];
+              break;
+          }
           // paths with lower expected cost are explored first
           float priority = new_cost + heuristic_cost;
           nodes_to_visit.push(Node(nbrs[i], priority, cur.path_length + 1));
+          // std::cout << "\tNeighbour at " << nx << "," << ny << " enqueued with cost " << new_cost << " and heuristic " << heuristic_cost << "\n";
 
           costs[nbrs[i]] = new_cost;
           paths[nbrs[i]] = cur.idx;

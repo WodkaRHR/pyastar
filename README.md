@@ -1,5 +1,10 @@
 [![Build Status](https://travis-ci.org/hjweide/pyastar.svg?branch=master)](https://travis-ci.org/hjweide/pyastar)
 [![Coverage Status](https://coveralls.io/repos/github/hjweide/pyastar/badge.svg?branch=master)](https://coveralls.io/github/hjweide/pyastar?branch=master)
+
+# About this fork
+This fork extends the original A\* implementation to work on 1-hot maze graphs where diagonal moves are penalized with sqrt(2).
+It also allows for the integration of a user defined heuristic in form of a heatmap.
+
 # PyAstar
 This is a very simple C++ implementation of the A\* algorithm for pathfinding
 on a two-dimensional grid.  The solver itself is implemented in C++, but is
@@ -42,15 +47,22 @@ A simple example is given below:
 ```python
 import numpy as np
 import pyastar
-# The minimum cost must be 1 for the heuristic to be valid.
-# The weights array must have np.float32 dtype to be compatible with the C++ code.
-weights = np.array([[1, 3, 3, 3, 3],
-                    [2, 1, 3, 3, 3],
-                    [2, 2, 1, 3, 3],
-                    [2, 2, 2, 1, 3],
-                    [2, 2, 2, 2, 1]], dtype=np.float32)
+# The grid indicates which cells are non-traversable
+# The grid array must have np.int32 dtype to be compatible with the C++ code.
+weights = np.array([[0, 1, 1, 1, 1],
+                    [1, 0, 1, 1, 3],
+                    [1, 1, 0, 1, 1],
+                    [1, 1, 1, 0, 1],
+                    [1, 1, 1, 1, 0]], dtype=np.int32)
+# A custom heuristic can be passed in a ndarray-format for each cell passing "custom" as heuristic type
+# Other valid heuristics are "l1", "l2" or "octile"
+heuristic = np.array([[0.1,  1.2, 1.3, 1.4, 1.5],
+                      [-0.2, 0.0, 1.2, 1.3, 4.1],
+                      [0.1,  1.2, 1.3, 1.4, 1.5],
+                      [-0.2, 0.0, 1.2, 1.3, 4.1],
+                      [-0.2, 0.0, 1.2, 1.3, 4.1],], dtype=np.float32)
 # The start and goal coordinates are in matrix coordinates (i, j).
-path = pyastar.astar_path(weights, (0, 0), (4, 4), allow_diagonal=True)
+path = pyastar.astar_path(weights, (0, 0), (4, 4), heuristic='custom', heuristic_heatmap=heuristic)
 print(path)
 # The path is returned as a numpy array of (i, j) coordinates.
 array([[0, 0],
