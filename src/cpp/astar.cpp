@@ -6,6 +6,7 @@
 #include <iostream>
 #include <ctype.h>
 #include <string>
+#include <stack>
 
 const float INF = std::numeric_limits<float>::infinity();
 
@@ -53,6 +54,20 @@ inline float octile_cost(int i0, int j0, int i1, int j1) {
   } else {
     return dy + (M_SQRT2 - 1) * dx;
   }
+}
+
+inline void get_neighbours(int *nbrs, int current, int w, int h) {
+  int row = current / w;
+  int col = current % w;
+  // check bounds and find up to eight neighbors: top to bottom, left to right
+  nbrs[0] = (row > 0 && col > 0)                     ? current - w - 1   : -1;
+  nbrs[1] = (row > 0)                                ? current - w       : -1;
+  nbrs[2] = (row > 0 && col + 1 < w)                 ? current - w + 1   : -1;
+  nbrs[3] = (col > 0)                                ? current - 1       : -1;
+  nbrs[4] = (col + 1 < w)                            ? current + 1       : -1;
+  nbrs[5] = (row + 1 < h && col > 0)                 ? current + w - 1   : -1;
+  nbrs[6] = (row + 1 < h)                            ? current + w       : -1;
+  nbrs[7] = (row + 1 < h && col + 1 < w )            ? current + w + 1   : -1;
 }
 
 enum {
@@ -141,20 +156,7 @@ static PyObject *astar(PyObject *self, PyObject *args) {
     }
 
     nodes_to_visit.pop();
-
-    int row = cur.idx / w;
-    int col = cur.idx % w;
-    // std::cout << "Dequeueing " << row << "," << col << "\n";
-
-    // check bounds and find up to eight neighbors: top to bottom, left to right
-    nbrs[0] = (row > 0 && col > 0)                     ? cur.idx - w - 1   : -1;
-    nbrs[1] = (row > 0)                                ? cur.idx - w       : -1;
-    nbrs[2] = (row > 0 && col + 1 < w)                 ? cur.idx - w + 1   : -1;
-    nbrs[3] = (col > 0)                                ? cur.idx - 1       : -1;
-    nbrs[4] = (col + 1 < w)                            ? cur.idx + 1       : -1;
-    nbrs[5] = (row + 1 < h && col > 0)                 ? cur.idx + w - 1   : -1;
-    nbrs[6] = (row + 1 < h)                            ? cur.idx + w       : -1;
-    nbrs[7] = (row + 1 < h && col + 1 < w )            ? cur.idx + w + 1   : -1;
+    get_neighbours(nbrs, cur.idx, w, h);
 
     float heuristic_cost = 0;
     for (int i = 0; i < 8; ++i) {
@@ -228,8 +230,146 @@ static PyObject *astar(PyObject *self, PyObject *args) {
   return return_val;
 }
 
+static PyObject *best_first_search(PyObject *self, PyObject *args) {
+  const PyArrayObject* weights_object;
+  const PyArrayObject* heuristic_object;
+  int h;
+  int w;
+  int start;
+  int goal;
+  const char *str_heuristic;
+
+  if (!PyArg_ParseTuple(
+        args, "OiiiisO", // i = int, O = object
+        &weights_object,
+        &h, &w,
+        &start, &goal,
+        &str_heuristic,
+        &heuristic_object))
+    return NULL;
+
+  int* weights = (int*) weights_object->data;
+  float* heuristic_map = NULL;
+  if (heuristic_object)
+    heuristic_map = (float*) heuristic_object->data;
+
+  int heuristic_type;
+  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
+    heuristic_type = L2_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
+    heuristic_type = L1_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
+    heuristic_type = OCTILE_HEURISTIC;
+  } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
+    heuristic_type = CUSTOM_HEURISTIC;
+  } else {
+    // std::cout << "No valid heuristic specified";
+    return NULL;
+  }
+
+  // std::cout << "Heuristic is " << heuristic_type << "\n";
+
+  int* paths = new int[h * w];
+  int* nbrs = new int[8];
+  std::vector<bool> visited(10, false);
+  std::stack<int> lifo;
+  lifo.push(start);
+
+  bool path_exists = false;
+
+  while (!lifo.empty()) {
+    int current = lifo.top();
+    lifo.pop();
+    // std::cout << "Popped " << (current / w) << "," << (current % w) << "\n";
+    if (visited[current])
+      continue;
+    visited[current] = true;
+    if (current == goal) {
+      path_exists = true;
+      break;
+    }
+    get_neighbours(nbrs, current, w, h);
+    // Push all univisted neighbours in order of increasing heuristic, for small array of size 8 just use insertion sort
+    for (int i = 8; i > 0; i--) {
+      float smallest = INF;
+      int smallest_idx = -1;
+      for (int j = 0; j < i; j++) {
+        int next = nbrs[j];
+        // std::cout << "Insertion iter " << i << ": Considering " << next << "\n";
+        if (next != -1 && !weights[next] && !visited[next]) {
+          float heuristic_cost = INF;
+          switch (heuristic_type) {
+            case L2_HEURISTIC:
+              heuristic_cost = l2_norm(next / w, next % w,
+                                     goal    / w, goal    % w);
+              break;
+            case L1_HEURISTIC: 
+              heuristic_cost = l1_norm(next / w, next % w,
+                                     goal    / w, goal    % w);
+              break;
+            case OCTILE_HEURISTIC:
+              heuristic_cost = octile_cost(next / w, next % w,
+                                     goal    / w, goal    % w);
+              break;
+            case CUSTOM_HEURISTIC:
+              heuristic_cost = heuristic_map[next];
+              break;
+          }
+          if (heuristic_cost < smallest) {
+            smallest = heuristic_map[next];
+            smallest_idx = j;
+          }
+        }
+      }
+      if (smallest_idx == -1)
+        break;
+      lifo.push(nbrs[smallest_idx]);
+      // std::cout << "Pushed " << (nbrs[smallest_idx] / w) << "," << (nbrs[smallest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[smallest_idx]] << "\n";
+      paths[nbrs[smallest_idx]] = current;
+      // Remove the neighbour at smallest_idx by swapping with the last element
+      nbrs[smallest_idx] = nbrs[i - 1];
+    }
+  }
+
+  
+
+  PyObject *return_val;
+  if (path_exists) {
+    // Find the path length
+    int idx = goal;
+    int path_length = 1;
+    while (idx != start) {
+      path_length++;
+      idx = paths[idx];
+    }
+    npy_intp dims[2] = {path_length, 2};
+    PyArrayObject* path = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_INT32);
+    npy_int32 *iptr, *jptr;
+    idx = goal;
+    for (npy_intp i = dims[0] - 1; i >= 0; --i) {
+        iptr = (npy_int32*) (path->data + i * path->strides[0]);
+        jptr = (npy_int32*) (path->data + i * path->strides[0] + path->strides[1]);
+
+        *iptr = idx / w;
+        *jptr = idx % w;
+
+        idx = paths[idx];
+    }
+
+    return_val = PyArray_Return(path);
+  }
+  else {
+    return_val = Py_BuildValue(""); // no soln --> return None
+  }
+  delete[] nbrs;
+  delete[] paths;
+
+  return return_val;
+}
+
 static PyMethodDef astar_methods[] = {
     {"astar", (PyCFunction)astar, METH_VARARGS, "astar"},
+    {"best_first_search", (PyCFunction)best_first_search, METH_VARARGS, "best_first_search"},
     {NULL, NULL, 0, NULL}
 };
 
