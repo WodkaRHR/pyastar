@@ -294,10 +294,10 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
     }
     get_neighbours(nbrs, current, w, h);
     // Push all univisted neighbours in order of increasing heuristic, for small array of size 8 just use insertion sort
-    for (int i = 8; i > 0; i--) {
+    for (int i = 0; i < 8; i++) {
       float largest = -INF;
       int largest_idx = -1;
-      for (int j = 0; j < i; j++) {
+      for (int j = i; j < 8; j++) {
         int next = nbrs[j];
         if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << " with weight " << weights[next] << "\n";
         if (next != -1 && !weights[next] && !visited[next]) {
@@ -331,19 +331,17 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
       lifo.push(nbrs[largest_idx]);
       if (verbose) std::cout << "Pushed " << (nbrs[largest_idx] / w) << "," << (nbrs[largest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[largest_idx]] << "\n";
       paths[nbrs[largest_idx]] = current;
-      // Remove the neighbour at largest_idx by swapping with the last element
-      nbrs[largest_idx] = nbrs[i - 1];
+      // Remove the neighbour at largest_idx by swapping with the first element
+      nbrs[largest_idx] = nbrs[i];
     }
   }
-
-  
 
   PyObject *return_val;
   if (path_exists) {
     // Find the path length
     int idx = goal;
     int path_length = 1;
-    while (idx != start) {
+    while (idx != start && idx != -1) {
       path_length++;
       idx = paths[idx];
     }
