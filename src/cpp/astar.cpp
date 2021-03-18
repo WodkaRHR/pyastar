@@ -21,7 +21,7 @@ class Node {
 };
 
 // the top of the priority queue is the greatest element by default,
-// but we want the smallest, so flip the sign
+// but we want the largest, so flip the sign
 bool operator<(const Node &n1, const Node &n2) {
   return n1.cost > n2.cost;
 }
@@ -295,8 +295,8 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
     get_neighbours(nbrs, current, w, h);
     // Push all univisted neighbours in order of increasing heuristic, for small array of size 8 just use insertion sort
     for (int i = 8; i > 0; i--) {
-      float smallest = INF;
-      int smallest_idx = -1;
+      float largest = -INF;
+      int largest_idx = -1;
       for (int j = 0; j < i; j++) {
         int next = nbrs[j];
         if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << " with weight " << weights[next] << "\n";
@@ -319,20 +319,20 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
               heuristic_cost = heuristic_map[next];
               break;
           }
-          if (verbose) std::cout << "\ŧhas heuristic cost: " << heuristic_cost << "\n";
-          if (heuristic_cost < smallest) {
-            smallest = heuristic_map[next];
-            smallest_idx = j;
+          if (verbose) std::cout << "\thas heuristic cost: " << heuristic_cost << "\n";
+          if (heuristic_cost > largest) {
+            largest = heuristic_map[next];
+            largest_idx = j;
           }
         }
       }
-      if (smallest_idx == -1)
+      if (largest_idx == -1)
         break;
-      lifo.push(nbrs[smallest_idx]);
-      if (verbose) std::cout << "Pushed " << (nbrs[smallest_idx] / w) << "," << (nbrs[smallest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[smallest_idx]] << "\n";
-      paths[nbrs[smallest_idx]] = current;
-      // Remove the neighbour at smallest_idx by swapping with the last element
-      nbrs[smallest_idx] = nbrs[i - 1];
+      lifo.push(nbrs[largest_idx]);
+      if (verbose) std::cout << "Pushed " << (nbrs[largest_idx] / w) << "," << (nbrs[largest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[largest_idx]] << "\n";
+      paths[nbrs[largest_idx]] = current;
+      // Remove the neighbour at largest_idx by swapping with the last element
+      nbrs[largest_idx] = nbrs[i - 1];
     }
   }
 
