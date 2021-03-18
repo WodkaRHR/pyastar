@@ -299,7 +299,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
       int smallest_idx = -1;
       for (int j = 0; j < i; j++) {
         int next = nbrs[j];
-        if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << "\n";
+        if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << " with weight " << weights[next] << "\n";
         if (next != -1 && !weights[next] && !visited[next]) {
           float heuristic_cost = INF;
           switch (heuristic_type) {
