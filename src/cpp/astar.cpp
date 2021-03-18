@@ -275,7 +275,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
 
   int* paths = new int[h * w];
   int* nbrs = new int[8];
-  std::vector<bool> visited(10, false);
+  std::vector<bool> visited(h * w, false);
   std::stack<int> lifo;
   lifo.push(start);
 
