@@ -100,14 +100,16 @@ static PyObject *astar(PyObject *self, PyObject *args) {
   int start;
   int goal;
   const char *str_heuristic;
+  int verbose;
 
   if (!PyArg_ParseTuple(
-        args, "OiiiisO", // i = int, O = object
+        args, "OiiiisOi", // i = int, O = object
         &weights_object,
         &h, &w,
         &start, &goal,
         &str_heuristic,
-        &heuristic_object))
+        &heuristic_object,
+        &verbose))
     return NULL;
 
   int* weights = (int*) weights_object->data;
@@ -161,11 +163,9 @@ static PyObject *astar(PyObject *self, PyObject *args) {
     float heuristic_cost = 0;
     for (int i = 0; i < 8; ++i) {
       if (nbrs[i] >= 0) {
-        // int nx = nbrs[i] / w;
-        // int ny = nbrs[i] % w;
-
         if (weights[nbrs[i]]) {
-          // std::cout << "\tNeighbour at " << nx << "," << ny << " non traversable\n";
+          if (verbose) std::cout << "\tNeighbour at " << (nbrs[i] / w) << "," << (nbrs[i] % w) << " non traversable\n";
+           
           continue; // Non-traversable neighbour
         }
           
@@ -192,7 +192,9 @@ static PyObject *astar(PyObject *self, PyObject *args) {
           // paths with lower expected cost are explored first
           float priority = new_cost + heuristic_cost;
           nodes_to_visit.push(Node(nbrs[i], priority, cur.path_length + 1));
-          // std::cout << "\tNeighbour at " << nx << "," << ny << " enqueued with cost " << new_cost << " and heuristic " << heuristic_cost << "\n";
+          if (verbose) {
+            std::cout << "\tNeighbour at " << (nbrs[i] / w) << "," << (nbrs[i] % w) << " enqueued with cost " << new_cost << " and heuristic " << heuristic_cost << "\n";
+          } 
 
           costs[nbrs[i]] = new_cost;
           paths[nbrs[i]] = cur.idx;
@@ -238,14 +240,16 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
   int start;
   int goal;
   const char *str_heuristic;
+  int verbose;
 
   if (!PyArg_ParseTuple(
-        args, "OiiiisO", // i = int, O = object
+        args, "OiiiisOi", // i = int, O = object
         &weights_object,
         &h, &w,
         &start, &goal,
         &str_heuristic,
-        &heuristic_object))
+        &heuristic_object,
+        &verbose))
     return NULL;
 
   int* weights = (int*) weights_object->data;
@@ -263,11 +267,11 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
   } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
     heuristic_type = CUSTOM_HEURISTIC;
   } else {
-    // std::cout << "No valid heuristic specified";
+    if (verbose) std::cout << "No valid heuristic specified";
     return NULL;
   }
 
-  // std::cout << "Heuristic is " << heuristic_type << "\n";
+  if (verbose) std::cout << "Heuristic is " << heuristic_type << "\n";
 
   int* paths = new int[h * w];
   int* nbrs = new int[8];
@@ -280,7 +284,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
   while (!lifo.empty()) {
     int current = lifo.top();
     lifo.pop();
-    // std::cout << "Popped " << (current / w) << "," << (current % w) << "\n";
+    if (verbose) std::cout << "Popped " << (current / w) << "," << (current % w) << "\n";
     if (visited[current])
       continue;
     visited[current] = true;
@@ -295,7 +299,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
       int smallest_idx = -1;
       for (int j = 0; j < i; j++) {
         int next = nbrs[j];
-        // std::cout << "Insertion iter " << i << ": Considering " << next << "\n";
+        if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << "\n";
         if (next != -1 && !weights[next] && !visited[next]) {
           float heuristic_cost = INF;
           switch (heuristic_type) {
@@ -324,7 +328,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
       if (smallest_idx == -1)
         break;
       lifo.push(nbrs[smallest_idx]);
-      // std::cout << "Pushed " << (nbrs[smallest_idx] / w) << "," << (nbrs[smallest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[smallest_idx]] << "\n";
+      if (verbose) std::cout << "Pushed " << (nbrs[smallest_idx] / w) << "," << (nbrs[smallest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[smallest_idx]] << "\n";
       paths[nbrs[smallest_idx]] = current;
       // Remove the neighbour at smallest_idx by swapping with the last element
       nbrs[smallest_idx] = nbrs[i - 1];

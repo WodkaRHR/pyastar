@@ -18,7 +18,7 @@ heuristic_map = np.random.randn(*maze.shape)
 
 print("Heuristic:")
 print(heuristic_map)
-path = pyastar.best_first_search_path(maze, start, goal, 'custom', heuristic_heatmap=heuristic_map)
+path = pyastar.best_first_search_path(maze, start, goal, 'custom', heuristic_heatmap=heuristic_map, verbose=False)
 
 # The path is returned as a numpy array of (i, j) coordinates.
 print(f"Shortest path from {start} to {goal} found:")

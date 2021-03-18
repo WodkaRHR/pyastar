@@ -22,6 +22,7 @@ pyastar.astar.argtypes = [
     ctypes.c_int,   # goal index in flattened grid
     ctypes.c_char_p,  # heuristic
     ndmat_f_type,   # heuristic heatmap
+    ctypes.c_int,   # verbose
 ]
 
 valid_heuristics = ('l1', 'l2', 'octile', 'custom')

@@ -22,6 +22,7 @@ pyastar.astar.argtypes = [
     ctypes.c_int,   # goal index in flattened grid
     ctypes.c_char_p,  # heuristic
     ndmat_f_type,   # heuristic heatmap
+    ctypes.c_int,   # verbose
 ]
 
 valid_heuristics = ('l1', 'l2', 'octile', 'custom')
@@ -32,7 +33,8 @@ def best_first_search_path(
         start: Tuple[int, int],
         goal: Tuple[int, int],
         heuristic: str = "l2",
-        heuristic_heatmap : Optional[np.ndarray] = None) -> Optional[np.ndarray]:
+        heuristic_heatmap : Optional[np.ndarray] = None,
+        verbose: bool = False) -> Optional[np.ndarray]:
     if maze.dtype != np.int32:
         print(f'Grid is required to have np.int32 data type, but has {maze.dtype}. Casting to np.int32')
         maze = maze.astype(np.int32)
@@ -60,6 +62,6 @@ def best_first_search_path(
         heuristic_heatmap = heuristic_heatmap.flatten()
 
     path = pyastar.astar.best_first_search(
-        maze.flatten(), height, width, start_idx, goal_idx, heuristic, heuristic_heatmap,
+        maze.flatten(), height, width, start_idx, goal_idx, heuristic, heuristic_heatmap, verbose,
     )
     return path
