@@ -319,6 +319,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
               heuristic_cost = heuristic_map[next];
               break;
           }
+          if (verbose) std::cout << "\ŧhas heuristic cost: " << heuristic_cost << "\n";
           if (heuristic_cost < smallest) {
             smallest = heuristic_map[next];
             smallest_idx = j;
