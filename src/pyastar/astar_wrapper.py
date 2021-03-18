@@ -33,7 +33,8 @@ def astar_path(
         start: Tuple[int, int],
         goal: Tuple[int, int],
         heuristic: str = "l2",
-        heuristic_heatmap : Optional[np.ndarray] = None) -> Optional[np.ndarray]:
+        heuristic_heatmap : Optional[np.ndarray] = None,
+        verbose : bool = False) -> Optional[np.ndarray]:
     if maze.dtype != np.int32:
         print(f'Grid is required to have np.int32 data type, but has {maze.dtype}. Casting to np.int32')
         maze = maze.astype(np.int32)
@@ -61,6 +62,6 @@ def astar_path(
         heuristic_heatmap = heuristic_heatmap.flatten()
 
     path = pyastar.astar.astar(
-        maze.flatten(), height, width, start_idx, goal_idx, heuristic, heuristic_heatmap,
+        maze.flatten(), height, width, start_idx, goal_idx, heuristic, heuristic_heatmap, verbose
     )
     return path
