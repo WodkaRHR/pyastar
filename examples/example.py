@@ -8,7 +8,7 @@ goal = (5, 5)
 
 # The minimum cost must be 1 for the heuristic to be valid.
 maze = np.array([   [0, 1, 1, 1, 1, 1],
-                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
                     [0, 0, 1, 1, 0, 0],
                     [0, 0, 1, 1, 0, 0],
                     [1, 0, 1, 0, 0, 1],
@@ -18,7 +18,7 @@ heuristic_map = np.random.randn(*maze.shape)
 
 print("Heuristic:")
 print(heuristic_map)
-path = pyastar.best_first_search_path(maze, start, goal, 'custom', heuristic_heatmap=heuristic_map, verbose=False)
+path = pyastar.best_first_search_path(maze, start, goal, 'custom', heuristic_heatmap=heuristic_map, verbose=True)
 
 # The path is returned as a numpy array of (i, j) coordinates.
 print(f"Shortest path from {start} to {goal} found:")

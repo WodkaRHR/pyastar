@@ -74,13 +74,28 @@ enum {
   L2_HEURISTIC,
   L1_HEURISTIC,
   OCTILE_HEURISTIC,
-  CUSTOM_HEURISTIC
+  CUSTOM_HEURISTIC,
+  INVALID_HEURISTIC = -1,
 };
 
 const char str_l2_heuristic[] = "l2";
 const char str_l1_heuristic[] = "l1";
 const char str_octile_heuristic[] = "octile";
 const char str_custom_heuristic[] = "custom";
+
+const int parse_heuristic(const char *str_heuristic) {
+  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
+      return L2_HEURISTIC;
+    } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
+      return L1_HEURISTIC;
+    } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
+      return OCTILE_HEURISTIC;
+    } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
+      return CUSTOM_HEURISTIC;
+    } else {
+      return INVALID_HEURISTIC;
+    }
+}
 
 const float nbrs_costs[8] = {
   M_SQRT2, 1, M_SQRT2, 1, 1, M_SQRT2, 1, M_SQRT2,
@@ -117,24 +132,13 @@ static PyObject *astar(PyObject *self, PyObject *args) {
   if (heuristic_object)
     heuristic_map = (float*) heuristic_object->data;
 
-  int heuristic_type;
-  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
-    heuristic_type = L2_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
-    heuristic_type = L1_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
-    heuristic_type = OCTILE_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
-    heuristic_type = CUSTOM_HEURISTIC;
-  } else {
-    // std::cout << "No valid heuristic specified";
+  int heuristic_type = parse_heuristic(str_heuristic);
+  if (heuristic_type == INVALID_HEURISTIC)
     return NULL;
-  }
-
-  // std::cout << "Heuristic is " << heuristic_type << "\n";
 
   int* paths = new int[h * w];
   int path_length = -1;
+  bool path_exists = false;
 
   Node start_node(start, 0., 1);
 
@@ -153,7 +157,7 @@ static PyObject *astar(PyObject *self, PyObject *args) {
     Node cur = nodes_to_visit.top();
 
     if (cur.idx == goal) {
-      path_length = cur.path_length;
+      path_exists = true;
       break;
     }
 
@@ -163,13 +167,12 @@ static PyObject *astar(PyObject *self, PyObject *args) {
     float heuristic_cost = 0;
     for (int i = 0; i < 8; ++i) {
       if (nbrs[i] >= 0) {
-        if (weights[nbrs[i]]) {
+        if (weights[nbrs[i]] != 0.0) {
           if (verbose) std::cout << "\tNeighbour at " << (nbrs[i] / w) << "," << (nbrs[i] % w) << " non traversable\n";
-           
           continue; // Non-traversable neighbour
         }
           
-        // the sum of the cost so far and the cost of this move
+        // The sum of the cost so far and the cost of this move
         float new_cost = costs[cur.idx] + nbrs_costs[i];
         if (new_cost < costs[nbrs[i]]) {
           switch (heuristic_type) {
@@ -204,11 +207,20 @@ static PyObject *astar(PyObject *self, PyObject *args) {
   }
 
   PyObject *return_val;
-  if (path_length >= 0) {
+  if (path_exists) {
+    // Find the path length, as for non admissable heuristics the node attribute may incorrect
+    int idx = goal;
+    path_length = 1;
+    while (idx != start && idx != -1) {
+      path_length++;
+      idx = paths[idx];
+    }
     npy_intp dims[2] = {path_length, 2};
     PyArrayObject* path = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_INT32);
     npy_int32 *iptr, *jptr;
-    int idx = goal;
+    idx = goal;
+    if (verbose)
+      std::cout << "Reconstruction from start " << (start / w) << "," << (start % w) << " to goal " << (goal / w) << "," << (goal % w) << "\n";
     for (npy_intp i = dims[0] - 1; i >= 0; --i) {
         iptr = (npy_int32*) (path->data + i * path->strides[0]);
         jptr = (npy_int32*) (path->data + i * path->strides[0] + path->strides[1]);
@@ -216,6 +228,8 @@ static PyObject *astar(PyObject *self, PyObject *args) {
         *iptr = idx / w;
         *jptr = idx % w;
 
+        if (verbose)
+          std::cout << "Reconstructing from " << (idx / w) << "," << (idx % w) << "\n";
         idx = paths[idx];
     }
 
@@ -257,24 +271,16 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
   if (heuristic_object)
     heuristic_map = (float*) heuristic_object->data;
 
-  int heuristic_type;
-  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
-    heuristic_type = L2_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
-    heuristic_type = L1_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
-    heuristic_type = OCTILE_HEURISTIC;
-  } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
-    heuristic_type = CUSTOM_HEURISTIC;
-  } else {
-    if (verbose) std::cout << "No valid heuristic specified";
+  int heuristic_type = parse_heuristic(str_heuristic);
+  if (heuristic_type == INVALID_HEURISTIC)
     return NULL;
-  }
 
-  if (verbose) std::cout << "Heuristic is " << heuristic_type << "\n";
+  if (verbose) 
+    std::cout << "Heuristic is " << heuristic_type << "\n";
 
   int* paths = new int[h * w];
   int* nbrs = new int[8];
+  int *nbr_idxs = new int[8];
   std::vector<bool> visited(h * w, false);
   std::stack<int> lifo;
   lifo.push(start);
@@ -293,46 +299,46 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
       break;
     }
     get_neighbours(nbrs, current, w, h);
-    // Push all univisted neighbours in order of increasing heuristic, for small array of size 8 just use insertion sort
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) nbr_idxs[i] = i;
+    for (int iter = 0; iter < 8; iter++) {
+      // Find the largest element in nbrs[iter:]
+      int largest_nbr_idx = -1;
       float largest = -INF;
-      int largest_idx = -1;
-      for (int j = i; j < 8; j++) {
-        int next = nbrs[j];
-        if (verbose && next != -1) std::cout << "Insertion iter " << i << ": Considering " << (next / w) << "," << (next % w) << " with weight " << weights[next] << "\n";
-        if (next != -1 && !weights[next] && !visited[next]) {
+      for (int i = iter; i < 8; i++) {
+        int next = nbrs[nbr_idxs[i]];
+        if (next >= 0 && weights[next] == 0.0 && !visited[next]) {
           float heuristic_cost = INF;
           switch (heuristic_type) {
             case L2_HEURISTIC:
               heuristic_cost = l2_norm(next / w, next % w,
-                                     goal    / w, goal    % w);
+                                    goal    / w, goal    % w);
               break;
             case L1_HEURISTIC: 
               heuristic_cost = l1_norm(next / w, next % w,
-                                     goal    / w, goal    % w);
+                                    goal    / w, goal    % w);
               break;
             case OCTILE_HEURISTIC:
               heuristic_cost = octile_cost(next / w, next % w,
-                                     goal    / w, goal    % w);
+                                    goal    / w, goal    % w);
               break;
             case CUSTOM_HEURISTIC:
               heuristic_cost = heuristic_map[next];
               break;
           }
-          if (verbose) std::cout << "\thas heuristic cost: " << heuristic_cost << "\n";
-          if (heuristic_cost > largest) {
-            largest = heuristic_map[next];
-            largest_idx = j;
+          float cost = heuristic_cost + nbrs_costs[nbr_idxs[i]];
+          if (cost > largest) {
+            largest = cost;
+            largest_nbr_idx = i;
           }
         }
       }
-      if (largest_idx == -1)
-        break;
-      lifo.push(nbrs[largest_idx]);
-      if (verbose) std::cout << "Pushed " << (nbrs[largest_idx] / w) << "," << (nbrs[largest_idx] % w) << " with heuristic of " << heuristic_map[nbrs[largest_idx]] << "\n";
-      paths[nbrs[largest_idx]] = current;
-      // Remove the neighbour at largest_idx by swapping with the first element
-      nbrs[largest_idx] = nbrs[i];
+      if (largest_nbr_idx == -1) {
+        break; // no more neighbours to exlore
+      }
+      int next = nbrs[nbr_idxs[largest_nbr_idx]];
+      lifo.push(next);
+      paths[next] = current;
+      nbr_idxs[largest_nbr_idx] = nbr_idxs[iter]; // Remove the neighbour idx from the list
     }
   }
 
@@ -366,6 +372,7 @@ static PyObject *best_first_search(PyObject *self, PyObject *args) {
   }
   delete[] nbrs;
   delete[] paths;
+  delete[] nbr_idxs;
 
   return return_val;
 }
