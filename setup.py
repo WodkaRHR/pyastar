@@ -15,17 +15,17 @@ class build_ext(_build_ext):
 
 
 astar_module = Extension(
-    'pyastar.astar', sources=['src/cpp/astar.cpp'],
+    'pyastar.astar', sources=['src/cpp/astar.cpp', 'src/cpp/heuristic.cpp'],
     extra_compile_args=["-O3", "-Wall", "-shared", "-fpic"],
 )
 
 bfs_module = Extension(
-    'pyastar.best_first_search', sources=['src/cpp/bfs.cpp'],
+    'pyastar.best_first_search', sources=['src/cpp/bfs.cpp', 'src/cpp/heuristic.cpp'],
     extra_compile_args=["-O3", "-Wall", "-shared", "-fpic"],
 )
 
 dijkstra_module = Extension(
-    'pyastar.dijkstra', sources=['src/cpp/dijkstra.cpp'],
+    'pyastar.dijkstra', sources=['src/cpp/dijkstra.cpp', 'src/cpp/heuristic.cpp'],
     extra_compile_args=["-O3", "-Wall", "-shared", "-fpic"],
 )
 

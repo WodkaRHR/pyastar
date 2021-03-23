@@ -8,6 +8,7 @@
 #include <string>
 #include <stack>
 #include "grid.h"
+#include "heuristic.h"
 
 // weights:        flattened h x w grid of costs
 // h, w:           height and width of grid

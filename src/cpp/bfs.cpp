@@ -8,6 +8,7 @@
 #include <string>
 #include <stack>
 #include "grid.h"
+#include "heuristic.h"
 
 static PyObject *best_first_search(PyObject *self, PyObject *args) {
   const PyArrayObject* weights_object;

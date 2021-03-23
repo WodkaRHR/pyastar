@@ -1,6 +1,10 @@
 #ifndef H_GRID
 #define H_GRID
 
+#include <string>
+#include <cmath>
+#include <limits>
+
 const float INF = std::numeric_limits<float>::infinity();
 
 // represents a single pixel
@@ -63,34 +67,7 @@ inline void get_neighbours(int *nbrs, int current, int w, int h) {
   nbrs[7] = (row + 1 < h && col + 1 < w )            ? current + w + 1   : -1;
 }
 
-enum {
-  L2_HEURISTIC,
-  L1_HEURISTIC,
-  OCTILE_HEURISTIC,
-  CUSTOM_HEURISTIC,
-  INVALID_HEURISTIC = -1,
-};
-
-
-const char str_l2_heuristic[] = "l2";
-const char str_l1_heuristic[] = "l1";
-const char str_octile_heuristic[] = "octile";
-const char str_custom_heuristic[] = "custom";
-
-const int parse_heuristic(const char *str_heuristic) {
-  if (strcmp(str_heuristic, str_l2_heuristic) == 0) {
-      return L2_HEURISTIC;
-    } else if (strcmp(str_heuristic, str_l1_heuristic) == 0) {
-      return L1_HEURISTIC;
-    } else if (strcmp(str_heuristic, str_octile_heuristic) == 0) {
-      return OCTILE_HEURISTIC;
-    } else if (strcmp(str_heuristic, str_custom_heuristic) == 0) {
-      return CUSTOM_HEURISTIC;
-    } else {
-      return INVALID_HEURISTIC;
-    }
-}
-
+// Traversal costs for moving to each adjacent neighbour
 const float nbrs_costs[8] = {
   M_SQRT2, 1, M_SQRT2, 1, 1, M_SQRT2, 1, M_SQRT2,
 };
