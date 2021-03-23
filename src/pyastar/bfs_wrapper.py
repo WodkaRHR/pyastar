@@ -1,6 +1,6 @@
 import ctypes
 import numpy as np
-import pyastar.astar
+import pyastar.best_first_search
 from typing import Optional, Tuple
 
 
@@ -13,8 +13,8 @@ ndmat_i2_type = np.ctypeslib.ndpointer(
     dtype=np.int32, ndim=2, flags="C_CONTIGUOUS")
 
 # Define input/output types
-pyastar.astar.restype = ndmat_i2_type  # Nx2 (i, j) coordinates or None
-pyastar.astar.argtypes = [
+pyastar.best_first_search.restype = ndmat_i2_type  # Nx2 (i, j) coordinates or None
+pyastar.best_first_search.argtypes = [
     ndmat_i_type,   # weights
     ctypes.c_int,   # height
     ctypes.c_int,   # width
@@ -61,7 +61,7 @@ def best_first_search_path(
     if heuristic_heatmap is not None:
         heuristic_heatmap = heuristic_heatmap.flatten()
 
-    path = pyastar.astar.best_first_search(
+    path = pyastar.best_first_search.best_first_search(
         maze.flatten(), height, width, start_idx, goal_idx, heuristic, heuristic_heatmap, verbose,
     )
     return path
